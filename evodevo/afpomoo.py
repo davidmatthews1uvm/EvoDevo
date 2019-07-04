@@ -12,25 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
 
 import copy
-import time
 import random
 
-from parallelpy.utils import Work
 from parallelpy.parallel_evaluate import batch_complete_work
 from parallelpy.parallel_evaluate import cleanup as _cleanup
 
-from evodevo.moo_interfaces import MOORobotInterface, StudentInterface
+from evodevo.moo_interfaces import MOORobotInterface
 from evodevo.students import MOOStudent as Student
+from evodevo.utils.print_utils import print_all
 
 
-
-class afpo_moo(object):
-    def __init__(self, robot_factory, pop_size=50, messages_file = None):
+class AFPOMoo(object):
+    def __init__(self, robot_factory, pop_size=50, messages_file=None):
         assert isinstance(robot_factory(), MOORobotInterface), 'robot_factory needs to produce robots which' \
-                                                            'conform to the RobotInterface interface'
+                                                               'conform to the RobotInterface interface'
 
         self.messages_file = messages_file
 
@@ -52,7 +49,6 @@ class afpo_moo(object):
         self.robot_id += 1
         return self.robot_id
 
-
     def cleanup(self):
         _cleanup()
 
@@ -71,27 +67,22 @@ class afpo_moo(object):
 
         batch_complete_work(robots_to_evaluate)
 
-
-    def generation(self, debug=False):
-        if debug: print("starting generation")
+    def generation(self):
         # update the generation dependent behavioral_sem_error of the bots.
         self._iterate_generation()
-        if debug: print("adding new student")
+
         # add a new Student even if the population already is full.
         new_student = Student(self.robot_factory(), self.get_robot_id())
         self.students.append(new_student)
 
-        if debug: print("beginning reproduction")
         # expand the population.
         while len(self.students) < self.pop_size * 2:
-            # if debug: print("|", end = '', flush=True)
             parent_index = random.randrange(0, self.pop_size)
             new_student = copy.deepcopy(self.students[parent_index])
             new_student.mutate()
             new_student.set_id(self.get_robot_id())
             self.students.append(new_student)
 
-        if debug: print("beginning evaluation of robots")
         # evaluate all robots
         self._evaluate_all()
 
@@ -99,7 +90,7 @@ class afpo_moo(object):
 
         dominating_individuals = 0
         dom_ind = []
-        if debug: print("Calculating dominating individuals")
+
         # calculate real number of dominating individuals.
         for s in range(len(self.students)):
             dominated = False
@@ -107,38 +98,37 @@ class afpo_moo(object):
                 if self.students[t].dominates(self.students[s]):
                     dominated = True
                     break
-            if (not dominated):
+            if not dominated:
                 dom_ind.append(self.students[s])
                 dominating_individuals += 1
 
-        if(debug): print("Starting pruning of population")
         while numb_students > max(self.pop_size, dominating_individuals):
             i1 = random.randrange(len(self.students))
             i2 = random.randrange(len(self.students))
             if i1 == i2:
                 continue
-            if self.students[i1] == None or self.students[i2] == None:
+            if self.students[i1] is None or self.students[i2] is None:
                 continue
             if self.students[i1].dominates(self.students[i2]):
                 self.students[i2] = None
                 numb_students -= 1
         # compress the population
-        self.students = [p for p in self.students if p != None]
+        self.students = [p for p in self.students if p is not None]
 
         # print warnings if necessary
-        if (dominating_individuals >= 2 * self.pop_size):
-            print("WARNING: unable evolve! All individuals are dominating!")
-        elif (dominating_individuals >= self.pop_size):
-            print("WARNING: dominating frontier contains more than 100% of individuals in the population!",
+        if dominating_individuals >= 2 * self.pop_size:
+            print_all("WARNING: unable evolve! All individuals are dominating!")
+        elif dominating_individuals >= self.pop_size:
+            print_all("WARNING: dominating frontier contains more than 100% of individuals in the population!",
                   dominating_individuals)
-        elif (dominating_individuals * 0.75 >= self.pop_size):
-            print("WARNING: dominating frontier contains more than 75% of individuals in the population!",
+        elif dominating_individuals * 0.75 >= self.pop_size:
+            print_all("WARNING: dominating frontier contains more than 75% of individuals in the population!",
                   dominating_individuals)
 
-        return (dominating_individuals, dom_ind)
+        return dominating_individuals, dom_ind
 
     def get_all_bots(self):
-        bots = [s.interface_bot for s in self.students if s != None]
+        bots = [s.interface_bot for s in self.students if s is not None]
         return bots
 
     def get_best(self):
@@ -148,4 +138,4 @@ class afpo_moo(object):
                 best_student = s
             if s is not None and s.dominates_final_selection(best_student):
                 best_student = s
-        return (best_student.get_fitness(), best_student.get_robot())
+        return best_student.get_fitness(), best_student.get_robot()

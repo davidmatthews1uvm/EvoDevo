@@ -12,12 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy
-import copy
-import math
-from functools import reduce
-
 from evodevo.moo_interfaces import StudentInterface
+
 
 class MOOStudent(StudentInterface):
     def dominates(self, other):
@@ -32,23 +28,21 @@ class MOOStudent(StudentInterface):
         other_min_traits = other.interface_bot.get_minimize_vals()
         other_max_traits = other.interface_bot.get_maximize_vals()
 
-
         # all min traits must be at least as small as corresponding min traits
-        if list(filter(lambda x: x[0] > x[1], zip(self_min_traits, other_min_traits))) != []:
+        if list(filter(lambda x: x[0] > x[1], zip(self_min_traits, other_min_traits))):
             return False
 
         # all max traits must be at least as large as corresponding max traits
-        if list(filter(lambda x: x[0] < x[1], zip(self_max_traits, other_max_traits))) != []:
+        if list(filter(lambda x: x[0] < x[1], zip(self_max_traits, other_max_traits))):
             return False
 
         # any min trait smaller than other min trait
-        if list(filter(lambda x: x[0] < x[1], zip(self_min_traits, other_min_traits))) != []:
+        if list(filter(lambda x: x[0] < x[1], zip(self_min_traits, other_min_traits))):
             return True
 
         # any max trait larger than other max trait
-        if list(filter(lambda x: x[0] > x[1], zip(self_max_traits, other_max_traits))) != []:
+        if list(filter(lambda x: x[0] > x[1], zip(self_max_traits, other_max_traits))):
             return True
 
-        #all fitness values are the same, default to return False.
+        # all fitness values are the same, default to return False.
         return self.interface_bot.get_seq_num() < other.interface_bot.get_seq_num()
-    

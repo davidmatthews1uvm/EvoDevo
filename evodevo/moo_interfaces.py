@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABCMeta, abstractmethod
 import copy
+from abc import ABCMeta, abstractmethod
 
 from parallelpy.utils import Work
+
 
 class MOORobotInterface(Work):
     __metaclass__ = ABCMeta
@@ -54,7 +55,7 @@ class MOORobotInterface(Work):
 class AFPORobotInterface(MOORobotInterface):
     __metaclass__ = ABCMeta
 
-    def __init__(self, optimize_mode = "fitness"):
+    def __init__(self, optimize_mode="fitness"):
         self.age = 0
         self.optimize_mode = optimize_mode
 
@@ -76,12 +77,13 @@ class AFPORobotInterface(MOORobotInterface):
     def get_age(self):
         return self.age
 
-class StudentInterface():
+
+class StudentInterface(object):
     __metaclass__ = ABCMeta
 
-    def __init__ (self, robot: MOORobotInterface, id):
+    def __init__(self, robot: MOORobotInterface, id):
         self.interface_bot = robot
-        self.id = id
+        self._id = id
 
     def __deepcopy__(self, memodict={}):
         ret = copy.copy(self)
@@ -95,7 +97,7 @@ class StudentInterface():
         return repr(self.interface_bot)
 
     def set_id(self, id):
-        self.id = id
+        self._id = id
 
     def get_robot(self):
         return self.interface_bot
@@ -121,4 +123,3 @@ class StudentInterface():
     @abstractmethod
     def dominates_final_selection(self, other):
         return self.interface_bot.dominates_final_selection(other)
-
