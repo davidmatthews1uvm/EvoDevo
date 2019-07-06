@@ -48,9 +48,10 @@ def cleanup():
     logging_file = None
 
 
-def print_all(string):
+def print_all(*strings, sep=" ", end="\n", flush=False):
     global logging_file
-    print(string)
+    print(*strings, sep=sep, end=end, flush=flush)
     if logging_file is not None:
-        logging_file.write(str(string) + "\n")
-        logging_file.flush()
+        logging_file.write(sep.join([str(s) for s in strings]) + end)
+        if flush:
+            logging_file.flush()

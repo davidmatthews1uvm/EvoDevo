@@ -25,7 +25,7 @@ from evodevo.utils.print_utils import print_all
 
 
 class EvolutionaryRun(object):
-    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=''):
+    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path="."):
         assert isinstance(robot_factory(), MOORobotInterface)
 
         self.source_code_path = source_code_path  # used for logging git info.
@@ -84,7 +84,7 @@ class EvolutionaryRun(object):
         """
 
         if self.messages_file is None:
-            self.messages_file = open("messages_" + str(self.seed) + ".txt", "a")
+            self.messages_file = open("%s/messages_"%(self.runDir) + str(self.seed) + ".txt", "a")
             print_utils.setup(log_file=self.messages_file)
 
     def cleanup_files(self):
@@ -147,6 +147,7 @@ class EvolutionaryRun(object):
 
     def save_data(self, robot):
         if repr(robot) not in self.saved_robots:
+            robot.write_self_description()
             self.saved_robots[repr(robot)] = 1
             # save the robot
             with open("%s/%s/%s.p" % (self.runDir, self.robotDir, str(robot.id)), "wb") as f:
@@ -231,17 +232,18 @@ class EvolutionaryRun(object):
         np.random.set_state(self.numpyRandState)
 
 
-def get_git_hash(source_code_path=""):
+def get_git_hash(source_code_path="."):
     """
     Attempts to find the git commit of the source code. if this fails, returns "UNKNOWN"
     :param source_code_path: The path to look at.
     :return: The commit hash. UNKNOWN if not found.
     """
     try:
-        cmd_to_run = "git -C '%s' log -n 1".split()
+        cmd_to_run = ("git -C %s log -n 1").split()
         cmd_to_run[2] = cmd_to_run[2] % source_code_path
 
         git_commit_hash = check_output(cmd_to_run).split()[1].decode("utf-8")
         return git_commit_hash
-    except:
+    except Exception as e:
+        raise e
         return "UNKNOWN"
