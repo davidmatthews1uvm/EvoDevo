@@ -15,6 +15,7 @@
 import os
 import pickle
 import random
+import time
 from subprocess import call, check_output
 
 import numpy as np
@@ -111,6 +112,7 @@ class EvolutionaryRun(object):
         self.cleanup_mpi()
 
     def do_generation(self, printing=False):
+        t0 = time.time()
         if os.path.exists("%s/MORE" % self.runDir):
             call(("rm %s/MORE" % self.runDir).split())
             self.num_gens += 500
@@ -133,6 +135,8 @@ class EvolutionaryRun(object):
         self.save_data(best[1])
 
         self.create_checkpoint()
+        t1 = time.time()
+        print_all("Generation took: %f"%(t1-t0))
 
     def run_full(self, printing=False):
         """
