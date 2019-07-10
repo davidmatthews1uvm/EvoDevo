@@ -14,9 +14,16 @@
 
 from setuptools import setup
 
+# Version Numbers:
+# x.y.z.w
+# w: Minor changes; Does not impact API.
+# z: Minor changes: Backwards compatible.
+# y: Semi-minor changes: Not all parts backwards compatible, you probably will not need to change your code.
+# x: Major changes: Upgrades will likely require changes to your code.
+
 setup(name='Evolutionary Development',
       author='David Matthews',
-      version='0.1dev',
+      version='0.1.1.0',
       packages=['evodevo'],
       description='Evolutionary Algorithms',
       install_requires=['numpy', 'scipy']

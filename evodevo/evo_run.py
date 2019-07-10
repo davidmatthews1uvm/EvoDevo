@@ -38,7 +38,7 @@ class EvolutionaryRun(object):
         if not self.create_directory(delete=False):
             # was the job running?
             if os.path.exists("%s/RUNNING" % self.runDir) or os.path.exists("%s/DONE" % self.runDir):
-                print_all("attempting to load from checkpoint")
+                print_all("Attempting to load from a checkpoint")
                 if self.load_checkpoint():
                     return
             self.create_directory(delete=True)
@@ -56,7 +56,7 @@ class EvolutionaryRun(object):
     def create_directory(self, delete=False):
 
         if os.path.isdir(self.runDir):
-            if delete and False:
+            if delete:
                 call(("rm -rf %s" % self.runDir).split())
                 print_all("Deleting directory %s/" % self.runDir)
             else:
@@ -192,7 +192,7 @@ class EvolutionaryRun(object):
                 except:
                     tmp = None
             if last_tmp == -1:
-                print_all("Failed to load from checkpoint. No checkpoints found")
+                print_all("Failed to load from checkpoint: No checkpoints found.\nStarting from scratch.")
                 return False
             self.setstate(last_tmp)
             current_git_commit_hash = get_git_hash(source_code_path=self.source_code_path)
@@ -201,7 +201,7 @@ class EvolutionaryRun(object):
                 if b:
                     last_git_commit_hash = res[n][8:]
                     if last_git_commit_hash != current_git_commit_hash:
-                        print_all("Failed to load from checkpoint. The git commit changed.")
+                        print_all("Failed to load from checkpoint. The git commit changed.\nStarting from scratch.")
                         call(("rm %s/GITHASH_*" % self.runDir).split())
                         return False
                     else:
@@ -214,7 +214,7 @@ class EvolutionaryRun(object):
             return True
 
         else:
-            print_all("Failed to load from checkpoint. Data directory missing")
+            print_all("Failed to load from checkpoint. Data directory missing.\nStarting from scratch.")
             return False
 
     def setstate(self, other):
