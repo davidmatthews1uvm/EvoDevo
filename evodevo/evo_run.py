@@ -26,7 +26,7 @@ from evodevo.utils.print_utils import print_all
 
 
 class EvolutionaryRun(object):
-    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path="."):
+    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=".", override_git_hash_change=False):
         assert isinstance(robot_factory(), MOORobotInterface)
 
         self.source_code_path = source_code_path  # used for logging git info.
@@ -40,7 +40,7 @@ class EvolutionaryRun(object):
             # was the job running?
             if os.path.exists("%s/RUNNING" % self.runDir) or os.path.exists("%s/DONE" % self.runDir):
                 print_all("Attempting to load from a checkpoint")
-                if self.load_checkpoint():
+                if self.load_checkpoint(override_git_hash_change):
                     return
             self.create_directory(delete=True)
             self.saved_robots = {}
@@ -172,7 +172,7 @@ class EvolutionaryRun(object):
 
         self.messages_file = tmp
 
-    def load_checkpoint(self):
+    def load_checkpoint(self, override_git_hash_change=False):
         gens_to_add = 0
         if os.path.exists("%s/DONE" % self.runDir):
             if os.path.exists("%s/MORE" % self.runDir):
@@ -205,6 +205,10 @@ class EvolutionaryRun(object):
                 if b:
                     last_git_commit_hash = res[n][8:]
                     if last_git_commit_hash != current_git_commit_hash:
+                        if override_git_hash_change:
+                            print_all("The git commit changed. Restart overridden; continuing.")
+                            call(("touch %s/GITHASH_%s" % (self.runDir, git_commit_hash)).split())
+                            break
                         print_all("Failed to load from checkpoint. The git commit changed.\nStarting from scratch.")
                         call(("rm %s/GITHASH_*" % self.runDir).split())
                         return False
