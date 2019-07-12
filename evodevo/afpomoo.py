@@ -19,14 +19,13 @@ import random
 from parallelpy.parallel_evaluate import batch_complete_work
 from parallelpy.parallel_evaluate import cleanup as _cleanup
 
-from evodevo.moo_interfaces import MOORobotInterface
-from evodevo.students import MOOStudent as Student
+from evodevo.moo_interfaces import RobotInterface, EvoAlgorithm
 from evodevo.utils.print_utils import print_all
 
 
-class AFPOMoo(object):
+class AFPOMoo(EvoAlgorithm):
     def __init__(self, robot_factory, pop_size=50, messages_file=None):
-        assert isinstance(robot_factory(), MOORobotInterface), 'robot_factory needs to produce robots which' \
+        assert isinstance(robot_factory(), RobotInterface), 'robot_factory needs to produce robots which' \
                                                                'conform to the RobotInterface interface'
 
         self.messages_file = messages_file
@@ -35,19 +34,21 @@ class AFPOMoo(object):
         self.robot_factory = robot_factory
 
         self.students = [None] * self.pop_size
-        self.robot_id = 0
         self.initialize()
+        self.robot_seq_num = 0
 
     def __str__(self):
         return "afpo population".join([str(s) for s in self.students])
 
     def initialize(self):
         for i in range(self.pop_size):
-            self.students[i] = Student(self.robot_factory(), self.get_robot_id())
+            tmp = self.robot_factory()
+            tmp.set_id(self.get_next_seq_num())
+            self.students[i] = tmp
 
-    def get_robot_id(self):
-        self.robot_id += 1
-        return self.robot_id
+    def get_next_seq_num(self):
+        self.robot_seq_num += 1
+        return self.robot_seq_num
 
     def cleanup(self):
         _cleanup()
@@ -72,15 +73,15 @@ class AFPOMoo(object):
         self._iterate_generation()
 
         # add a new Student even if the population already is full.
-        new_student = Student(self.robot_factory(), self.get_robot_id())
+        new_student = self.robot_factory()
         self.students.append(new_student)
 
         # expand the population.
         while len(self.students) < self.pop_size * 2:
             parent_index = random.randrange(0, self.pop_size)
             new_student = copy.deepcopy(self.students[parent_index])
+            new_student.set_id(self.get_next_seq_num())
             new_student.mutate()
-            new_student.set_id(self.get_robot_id())
             self.students.append(new_student)
 
         # evaluate all robots

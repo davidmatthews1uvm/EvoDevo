@@ -23,10 +23,10 @@ from evodevo.moo_interfaces import RobotInterface, EvoAlgorithm
 from evodevo.utils.print_utils import print_all
 
 
-class EvoSoroEvoAlg(EvoAlgorithm):
+class EvoSoroAlg(EvoAlgorithm):
     def __init__(self, robot_factory, pop_size=50, messages_file=None):
         assert isinstance(robot_factory(), RobotInterface), 'robot_factory needs to produce robots which' \
-                                                               'conform to the RobotInterface interface'
+                                                            'conform to the RobotInterface interface'
 
         self.messages_file = messages_file
 
@@ -35,13 +35,20 @@ class EvoSoroEvoAlg(EvoAlgorithm):
 
         self.students = [None] * self.pop_size
         self.initialize()
+        self.robot_seq_num = 0
 
     def __str__(self):
         return "afpo population".join([str(s) for s in self.students])
 
     def initialize(self):
         for i in range(self.pop_size):
-            self.students[i] = self.robot_factory()
+            tmp = self.robot_factory()
+            tmp.set_id(self.get_next_seq_num())
+            self.students[i] = tmp
+
+    def get_next_seq_num(self):
+        self.robot_seq_num += 1
+        return self.robot_seq_num
 
     def cleanup(self):
         _cleanup()
@@ -73,32 +80,17 @@ class EvoSoroEvoAlg(EvoAlgorithm):
         while len(self.students) < self.pop_size * 2:
             parent_index = random.randrange(0, self.pop_size)
             new_student = copy.deepcopy(self.students[parent_index])
+            new_student.set_id(self.get_next_seq_num())
             new_student.mutate()
             self.students.append(new_student)
 
         # evaluate all robots
         self._evaluate_all()
 
-
-        self.students, (num_dominating_inds, dominating_individuals)  = self.selection()
-
-        # print warnings if necessary
-        if num_dominating_inds >= 2 * self.pop_size:
-            print_all("WARNING: unable evolve! All individuals are dominating!")
-        elif num_dominating_inds >= self.pop_size:
-            print_all("WARNING: dominating frontier contains more than 100% of individuals in the population!",
-                  num_dominating_inds)
-        elif num_dominating_inds * 0.75 >= self.pop_size:
-            print_all("WARNING: dominating frontier contains more than 75% of individuals in the population!",
-                  num_dominating_inds)
-
-        return num_dominating_inds, dominating_individuals
-
-    def selection(self):
         numb_students = self.pop_size * 2
 
-        num_dominating_inds = 0
-        dominating_individuals = []
+        dominating_individuals = 0
+        dom_ind = []
 
         # calculate real number of dominating individuals.
         for s in range(len(self.students)):
@@ -108,10 +100,10 @@ class EvoSoroEvoAlg(EvoAlgorithm):
                     dominated = True
                     break
             if not dominated:
-                dominating_individuals.append(self.students[s])
-                num_dominating_inds += 1
+                dom_ind.append(self.students[s])
+                dominating_individuals += 1
 
-        while numb_students > max(self.pop_size, num_dominating_inds):
+        while numb_students > max(self.pop_size, dominating_individuals):
             i1 = random.randrange(len(self.students))
             i2 = random.randrange(len(self.students))
             if i1 == i2:
@@ -122,8 +114,20 @@ class EvoSoroEvoAlg(EvoAlgorithm):
                 self.students[i2] = None
                 numb_students -= 1
         # compress the population
-        return [p for p in self.students if p is not None], (num_dominating_inds, dominating_individuals)
-        
+        self.students = [p for p in self.students if p is not None]
+
+        # print warnings if necessary
+        if dominating_individuals >= 2 * self.pop_size:
+            print_all("WARNING: unable evolve! All individuals are dominating!")
+        elif dominating_individuals >= self.pop_size:
+            print_all("WARNING: dominating frontier contains more than 100% of individuals in the population!",
+                      dominating_individuals)
+        elif dominating_individuals * 0.75 >= self.pop_size:
+            print_all("WARNING: dominating frontier contains more than 75% of individuals in the population!",
+                      dominating_individuals)
+
+        return dominating_individuals, dom_ind
+
     def get_all_bots(self):
         bots = [s.interface_bot for s in self.students if s is not None]
         return bots
