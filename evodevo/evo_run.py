@@ -45,6 +45,7 @@ class EvolutionaryRun(object):
             self.create_directory(delete=True)
             self.saved_robots = {}
             self.num_gens = gens
+            self.data_column_cnt = None
             self.current_gen = 0
             self.seed = seed
             self.randRandState = None
@@ -148,6 +149,7 @@ class EvolutionaryRun(object):
             self.do_generation(printing=printing)
 
         self.cleanup_all()
+        self.stitch()
 
     def save_data(self, robot):
         if repr(robot) not in self.saved_robots:
@@ -159,7 +161,12 @@ class EvolutionaryRun(object):
             # save the info for the generation
             with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, self.current_gen), "w") as f:
                 to_write = [str(self.seed), str(self.current_gen), str(robot.id)]
-                to_write += [str(d) for d in robot.get_data()]
+                if self.data_column_cnt is None:
+                    tmp = robot.get_data()
+                    self.data_column_cnt = len(tmp)
+                    to_write += [str(d) for d in tmp]
+                else:
+                    to_write += [str(d) for d in robot.get_data()]
                 f.write(', '.join(to_write))
 
     def create_checkpoint(self):
@@ -207,7 +214,7 @@ class EvolutionaryRun(object):
                     if last_git_commit_hash != current_git_commit_hash:
                         if override_git_hash_change:
                             print_all("The git commit changed. Restart overridden; continuing.")
-                            call(("touch %s/GITHASH_%s" % (self.runDir, git_commit_hash)).split())
+                            call(("touch %s/GITHASH_%s" % (self.runDir, current_git_commit_hash)).split())
                             break
                         print_all("Failed to load from checkpoint. The git commit changed.\nStarting from scratch.")
                         call(("rm %s/GITHASH_*" % self.runDir).split())
@@ -227,6 +234,7 @@ class EvolutionaryRun(object):
 
     def setstate(self, other):
         self.saved_robots = other.saved_robots
+        self.data_column_cnt = other.data_column_cnt
         self.num_gens = other.num_gens
         self.current_gen = other.current_gen
         self.seed = other.seed
@@ -239,10 +247,30 @@ class EvolutionaryRun(object):
         random.setstate(self.randRandState)
         np.random.set_state(self.numpyRandState)
 
+    def stitch(self):
+        """
+        stitch the generation logs together into one CSV file.
+        :return: None
+        """
+        try:
+            out_file = open("%s/Gens.txt"%self.runDir, "w")
+            out_file.write("Seed,Gen,UUID,fit,fit_test, age," + ','.join(["Data_%d" % n for n in range(self.data_column_cnt)]) + "\n")
+            for i in range(1, self.num_gens):
+                with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, i), "r") as f:
+                    out_file.write(f.read() + "\n")
+            out_file.close()
+        except Exception as e:
+            print("Failed to stitch the data together.")
+            print(str(e))
+
+
+
 
 def get_git_hash(source_code_path="."):
     """
     Attempts to find the git commit of the source code. if this fails, returns "UNKNOWN"
+    NOTE: -C is only available in newer versions of git. Please install a newer version of git if needed.
+
     :param source_code_path: The path to look at.
     :return: The commit hash. UNKNOWN if not found.
     """
@@ -253,5 +281,5 @@ def get_git_hash(source_code_path="."):
         git_commit_hash = check_output(cmd_to_run).split()[1].decode("utf-8")
         return git_commit_hash
     except Exception as e:
-        raise e
+        print(e)
         return "UNKNOWN"
