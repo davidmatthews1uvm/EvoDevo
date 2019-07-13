@@ -26,7 +26,7 @@ from evodevo.utils.print_utils import print_all
 
 
 class EvolutionaryRun(object):
-    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=".", override_git_hash_change=False):
+    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=".", override_git_hash_change=False, max_time=None):
         assert isinstance(robot_factory(), MOORobotInterface)
 
         self.source_code_path = source_code_path  # used for logging git info.
@@ -35,6 +35,8 @@ class EvolutionaryRun(object):
         self.runDir = "run_%d" % seed
         self.robotDir = "BestRobots"
         self.datDir = "Data"
+        self.start_time = time.time()
+        self.max_time = max_time
 
         if not self.create_directory(delete=False):
             # was the job running?
@@ -86,7 +88,7 @@ class EvolutionaryRun(object):
         """
 
         if self.messages_file is None:
-            self.messages_file = open("%s/messages_"%(self.runDir) + str(self.seed) + ".txt", "a")
+            self.messages_file = open("%s/messages_" % (self.runDir) + str(self.seed) + ".txt", "a")
             print_utils.setup(log_file=self.messages_file)
 
     def cleanup_files(self):
@@ -137,7 +139,7 @@ class EvolutionaryRun(object):
 
         self.create_checkpoint()
         t1 = time.time()
-        print_all("Generation took: %f"%(t1-t0))
+        print_all("Generation took: %f" % (t1 - t0))
 
     def run_full(self, printing=False):
         """
@@ -145,11 +147,12 @@ class EvolutionaryRun(object):
         """
         self.init()
 
-        while self.current_gen < self.num_gens:
+        while self.current_gen < self.num_gens and self.is_time_remaining():
             self.do_generation(printing=printing)
 
         self.cleanup_all()
-        self.stitch()
+        if self.is_time_remaining():
+            self.stitch()
 
     def save_data(self, robot):
         if repr(robot) not in self.saved_robots:
@@ -253,7 +256,7 @@ class EvolutionaryRun(object):
         :return: None
         """
         try:
-            out_file = open("%s/Gens.txt"%self.runDir, "w")
+            out_file = open("%s/Gens.txt" % self.runDir, "w")
             out_file.write("Seed,Gen,UUID,fit,fit_test, age," + ','.join(["Data_%d" % n for n in range(self.data_column_cnt)]) + "\n")
             for i in range(1, self.num_gens):
                 with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, i), "r") as f:
@@ -263,7 +266,20 @@ class EvolutionaryRun(object):
             print("Failed to stitch the data together.")
             print(str(e))
 
+    def is_time_remaining(self):
+        if self.max_time is None:
+            return True
 
+        cur_time = time.time()
+
+        run_time = cur_time - self.start_time
+        run_time_hrs = run_time / 3600
+
+        buffer_time = 0.25  # hours // 15 mins
+
+        if run_time_hrs > self.max_time - buffer_time:
+            return False
+        return True
 
 
 def get_git_hash(source_code_path="."):
