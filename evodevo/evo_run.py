@@ -98,19 +98,21 @@ class EvolutionaryRun(object):
         """
 
         # messages cleanup_files
-        self.messages_file.close()
-        self.messages_file = None
+        if self.messages_file is not None:
+            self.messages_file.close()
+            self.messages_file = None
         print_utils.cleanup()
 
     def cleanup_mpi(self):
         self.afpo_algorithm.cleanup()
 
-    def cleanup_all(self):
+    def cleanup_all(self, done=False):
         """
         cleans up files and cleans up mpi
         """
-        call(("rm %s/RUNNING" % self.runDir).split())
-        call(("touch %s/DONE" % self.runDir).split())
+        if done:
+            call(("rm %s/RUNNING" % self.runDir).split())
+            call(("touch %s/DONE" % self.runDir).split())
         self.cleanup_files()
         self.cleanup_mpi()
 
@@ -150,7 +152,7 @@ class EvolutionaryRun(object):
         while self.current_gen < self.num_gens and self.is_time_remaining():
             self.do_generation(printing=printing)
 
-        self.cleanup_all()
+        self.cleanup_all(done=self.is_time_remaining())
         if self.is_time_remaining():
             self.stitch()
 
@@ -191,7 +193,9 @@ class EvolutionaryRun(object):
                 call(("rm %s/MORE" % self.runDir).split())
                 call(("touch %s/RUNNING" % self.runDir).split())
             else:
-                raise Exception("Evo run is already done. Please touch MORE to continue.")
+                print("Evo run is already done. Please touch MORE to continue.")
+                self.cleanup_all()
+                exit(1)
 
         if os.path.isdir("%s/%s" % (self.runDir, self.datDir)):
             gen = 1

@@ -44,8 +44,9 @@ def cleanup():
     :return: None
     """
     global logging_file
-    logging_file.close()
-    logging_file = None
+    if logging_file is not None:
+        logging_file.close()
+        logging_file = None
 
 
 def print_all(*strings, sep=" ", end="\n", flush=True):
