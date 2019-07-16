@@ -18,33 +18,48 @@ from abc import ABCMeta, abstractmethod
 from parallelpy.utils import Work
 
 
-class MOORobotInterface(Work):
+class RobotInterface(Work):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def iterate_generation(self): raise NotImplementedError
+    def set_id(self, new_id): raise NotImplementedError
 
     @abstractmethod
-    def needs_evaluation(self): raise NotImplementedError
+    def get_id(self):
+        """
+        Return a unique identifer for this robot. Must be compareable to other robot ids.
+        This is used as a tiebreaker in multi-objective optimization.
+        :return:
+        """
+        raise NotImplementedError
 
     @abstractmethod
-    def mutate(self): raise NotImplementedError
+    def iterate_generation(self):
+        """
+        This method will be called on each robot in the population every generation.
+        If you implementing AFPO, then use this to update the age.
+        :return: None
+        """
+        raise NotImplementedError
 
     @abstractmethod
-    def get_maximize_vals(self): raise NotImplementedError
+    def needs_evaluation(self):
+        """
+        :return: True if you need to be evaluted, false otherwise.
+        """
+        raise NotImplementedError
 
     @abstractmethod
-    def get_minimize_vals(self): raise NotImplementedError
-
-    @abstractmethod
-    def get_seq_num(self): raise NotImplementedError
-
-    @abstractmethod
-    def get_fitness(self): raise NotImplementedError
+    def mutate(self):
+        """
+        Make some mutations. You decide what mutations to make.
+        :return: None
+       """
+        raise NotImplementedError
 
     @abstractmethod
     def get_data(self): raise NotImplementedError
-    
+
     def write_self_description(self, dir):
         """
         When saving the best robots, we sometimes might want them to export a version of themselves which can be easily opened for later viewing.\
@@ -54,10 +69,56 @@ class MOORobotInterface(Work):
         pass
 
     @abstractmethod
-    def get_data_column_count(self): pass
+    def dominates(self, other): raise NotImplementedError
 
     @abstractmethod
     def dominates_final_selection(self, other): raise NotImplementedError
+
+    @abstractmethod
+    def get_fitness(self): raise NotImplementedError
+
+class MOORobotInterface(RobotInterface):
+    __metaclass__ = ABCMeta
+    @abstractmethod
+    def get_maximize_vals(self): raise NotImplementedError
+
+    @abstractmethod
+    def get_minimize_vals(self): raise NotImplementedError
+
+    @abstractmethod
+    def get_seq_num(self): raise NotImplementedError
+
+    def dominates(self, other):
+        """
+        returns True if self dominates other
+        :param other: the other Student to compare self to.
+        :return: True if self dominates other, False otherwise.
+        """
+        self_min_traits = self.get_minimize_vals()
+        self_max_traits = self.get_maximize_vals()
+
+        other_min_traits = other.get_minimize_vals()
+        other_max_traits = other.get_maximize_vals()
+
+        # all min traits must be at least as small as corresponding min traits
+        if list(filter(lambda x: x[0] > x[1], zip(self_min_traits, other_min_traits))):
+            return False
+
+        # all max traits must be at least as large as corresponding max traits
+        if list(filter(lambda x: x[0] < x[1], zip(self_max_traits, other_max_traits))):
+            return False
+
+        # any min trait smaller than other min trait
+        if list(filter(lambda x: x[0] < x[1], zip(self_min_traits, other_min_traits))):
+            return True
+
+        # any max trait larger than other max trait
+        if list(filter(lambda x: x[0] > x[1], zip(self_max_traits, other_max_traits))):
+            return True
+
+        # all fitness values are the same, default to return False.
+        return self.get_seq_num() < other.get_seq_num()
+
 
 
 class AFPORobotInterface(MOORobotInterface):
@@ -85,49 +146,3 @@ class AFPORobotInterface(MOORobotInterface):
     def get_age(self):
         return self.age
 
-
-class StudentInterface(object):
-    __metaclass__ = ABCMeta
-
-    def __init__(self, robot: MOORobotInterface, id):
-        self.interface_bot = robot
-        self._id = id
-
-    def __deepcopy__(self, memodict={}):
-        ret = copy.copy(self)
-        ret.interface_bot = copy.deepcopy(self.interface_bot)
-        return ret
-
-    def __str__(self):
-        return str(self.interface_bot)
-
-    def __repr__(self):
-        return repr(self.interface_bot)
-
-    def set_id(self, id):
-        self._id = id
-
-    def get_robot(self):
-        return self.interface_bot
-
-    def get_fitness(self):
-        return self.interface_bot.get_fitness()
-
-    def get_data(self):
-        return self.interface_bot.get_data()
-
-    def mutate(self):
-        self.interface_bot.mutate()
-
-    def iterate_generation(self):
-        self.interface_bot.iterate_generation()
-
-    def needs_evaluation(self):
-        return self.interface_bot.needs_evaluation()
-
-    @abstractmethod
-    def dominates(self, other): raise NotImplementedError
-
-    @abstractmethod
-    def dominates_final_selection(self, other):
-        return self.interface_bot.dominates_final_selection(other)

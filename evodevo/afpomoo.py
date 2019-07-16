@@ -19,14 +19,13 @@ import random
 from parallelpy.parallel_evaluate import batch_complete_work
 from parallelpy.parallel_evaluate import cleanup as _cleanup
 
-from evodevo.moo_interfaces import MOORobotInterface
-from evodevo.students import MOOStudent as Student
+from evodevo.moo_interfaces import RobotInterface
 from evodevo.utils.print_utils import print_all
 
 
 class AFPOMoo(object):
     def __init__(self, robot_factory, pop_size=50, messages_file=None):
-        assert isinstance(robot_factory(), MOORobotInterface), 'robot_factory needs to produce robots which' \
+        assert isinstance(robot_factory(), RobotInterface), 'robot_factory needs to produce robots which' \
                                                                'conform to the RobotInterface interface'
 
         self.messages_file = messages_file
@@ -43,7 +42,8 @@ class AFPOMoo(object):
 
     def initialize(self):
         for i in range(self.pop_size):
-            self.students[i] = Student(self.robot_factory(), self.get_robot_id())
+            self.students[i] = self.robot_factory()
+            self.students[i].set_id(self.get_robot_id())
 
     def get_robot_id(self):
         self.robot_id += 1
@@ -62,17 +62,17 @@ class AFPOMoo(object):
 
     def _evaluate_all(self):
         # get the robots to evaluate, store how many simulations each robot needs.
-        students_to_evaluate = [s for s in self.students if s.get_robot().needs_evaluation()]
-        robots_to_evaluate = [s.get_robot() for s in students_to_evaluate]
+        students_to_evaluate = [s for s in self.students if s.needs_evaluation()]
 
-        batch_complete_work(robots_to_evaluate)
+        batch_complete_work(students_to_evaluate)
 
     def generation(self):
         # update the generation dependent behavioral_sem_error of the bots.
         self._iterate_generation()
 
         # add a new Student even if the population already is full.
-        new_student = Student(self.robot_factory(), self.get_robot_id())
+        new_student = self.robot_factory()
+        new_student.set_id(self.get_robot_id())
         self.students.append(new_student)
 
         # expand the population.
@@ -128,7 +128,7 @@ class AFPOMoo(object):
         return dominating_individuals, dom_ind
 
     def get_all_bots(self):
-        bots = [s.interface_bot for s in self.students if s is not None]
+        bots = [s for s in self.students if s is not None]
         return bots
 
     def get_best(self):
@@ -138,4 +138,4 @@ class AFPOMoo(object):
                 best_student = s
             if s is not None and s.dominates_final_selection(best_student):
                 best_student = s
-        return best_student.get_fitness(), best_student.get_robot()
+        return best_student.get_fitness(), best_student

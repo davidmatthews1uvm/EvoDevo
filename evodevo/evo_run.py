@@ -20,20 +20,22 @@ from subprocess import call, check_output
 
 import numpy as np
 
-from evodevo.afpomoo import AFPOMoo, MOORobotInterface
+from evodevo.afpomoo import AFPOMoo
+from evodevo.moo_interfaces import RobotInterface
 from evodevo.utils import print_utils
 from evodevo.utils.print_utils import print_all
 
 
 class EvolutionaryRun(object):
     def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=".", override_git_hash_change=False, max_time=None):
-        assert isinstance(robot_factory(), MOORobotInterface)
+        assert isinstance(robot_factory(), RobotInterface)
 
         self.source_code_path = source_code_path  # used for logging git info.
 
         # make directory for current evo run.
         self.runDir = "run_%d" % seed
-        self.robotDir = "BestRobots"
+        self.best_robot_dir = "BestRobots"
+        self.all_robot_dir = "AllRobots"
         self.datDir = "Data"
         self.start_time = time.time()
         self.max_time = max_time
@@ -44,7 +46,7 @@ class EvolutionaryRun(object):
                 print_all("Attempting to load from a checkpoint")
                 if self.load_checkpoint(override_git_hash_change):
                     return
-        self.create_directory(delete=True)
+            self.create_directory(delete=True)
         self.saved_robots = {}
         self.num_gens = gens
         self.data_column_cnt = None
@@ -66,8 +68,10 @@ class EvolutionaryRun(object):
             else:
                 return False
         os.mkdir(self.runDir)
-        os.mkdir("%s/%s" % (self.runDir, self.robotDir))
+        os.mkdir("%s/%s" % (self.runDir, self.best_robot_dir))
+        os.mkdir("%s/%s" % (self.runDir, self.all_robot_dir))
         os.mkdir("%s/%s" % (self.runDir, self.datDir))
+
         call(("touch %s/RUNNING" % self.runDir).split())
 
         git_commit_hash = get_git_hash(source_code_path=self.source_code_path)
@@ -138,7 +142,11 @@ class EvolutionaryRun(object):
             # print_all("age: %f fit: %f" % (best[1], best[0]), self.messages_file)
             print_all(best[1])
 
-        self.save_data(best[1])
+        self.save_data(best[1], dir=self.best_robot_dir)
+
+        all_bots = self.afpo_algorithm.get_all_bots()
+        for s in all_bots:
+            self.save_data(s, dir=self.all_robot_dir)
 
         self.create_checkpoint()
         t1 = time.time()
@@ -157,12 +165,12 @@ class EvolutionaryRun(object):
         if self.is_time_remaining():
             self.stitch()
 
-    def save_data(self, robot):
+    def save_data(self, robot, dir=""):
         if repr(robot) not in self.saved_robots:
-            robot.write_self_description("%s/%s"%(self.runDir, self.robotDir))
+            robot.write_self_description("%s/%s" % (self.runDir, dir))
             self.saved_robots[repr(robot)] = 1
             # save the robot
-            with open("%s/%s/%s.p" % (self.runDir, self.robotDir, str(robot.id)), "wb") as f:
+            with open("%s/%s/%s.p" % (self.runDir, dir, str(robot.id)), "wb") as f:
                 pickle.dump(robot, f)
             # save the info for the generation
             with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, self.current_gen), "w") as f:
@@ -195,7 +203,6 @@ class EvolutionaryRun(object):
                 call(("touch %s/RUNNING" % self.runDir).split())
             else:
                 print("Evo run is already done. Please touch MORE to continue.")
-                self.cleanup_mpi() # we have not opened any files; thus nothing to cleanup except MPI
                 exit(0)
 
         if os.path.isdir("%s/%s" % (self.runDir, self.datDir)):

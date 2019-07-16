@@ -1,22 +1,16 @@
-import os
 import random
-import time
-import uuid
-from subprocess import Popen
 
 import numpy as np
-from lxml import etree
 from parallelpy.utils import Letter
 
 from evodevo.moo_interfaces import MOORobotInterface
-from evodevo.utils.print_utils import print_all
 
 
 class SoftbotRobot(MOORobotInterface):
-    def __init__(self, robot, seq_num_gen, run_dir, **kwargs):
+    def __init__(self, robot, run_dir, **kwargs):
         self.run_dir = run_dir
-        self.seq_num_gen = seq_num_gen
-        self.id = self.seq_num_gen()
+        self.id = -1
+        self.parent_id = -1
         self.robot = robot
         if "max_eval_time" in kwargs:
             self.max_eval_time = kwargs["max_eval_time"]
@@ -27,21 +21,25 @@ class SoftbotRobot(MOORobotInterface):
         self.raw_fit = np.zeros(shape=(2, 2))
 
         self.needs_eval = True
-
         self.age = 0
 
     def __str__(self):
-        return "AFPO BOT (id: %s): f: %.2f age: %d" % (str(self.id),
-                                                       self.get_fitness(),
-                                                       self.get_age())
+        return "AFPO BOT (id: %s): f: %.2f age: %d parent: %d" % (str(self.id),
+                                                                  self.get_fitness(),
+                                                                  self.get_age(),
+                                                                  self.get_parent_id())
 
     def __repr__(self):
         return str(self)
 
+    def set_id(self, newid):
+        self.id = newid
 
     def get_id(self):
         return self.id
 
+    def get_parent_id(self):
+        return self.parent_id
 
     # Methods for MOORObotInterface class
 
@@ -53,7 +51,7 @@ class SoftbotRobot(MOORobotInterface):
 
     def mutate(self):
         self.needs_eval = True
-        self.id = self.seq_num_gen()
+        self.parent_id = self.id
         self.fitness = -1000
 
     def get_minimize_vals(self):
@@ -72,14 +70,6 @@ class SoftbotRobot(MOORobotInterface):
         ret = [self.get_fitness(), self.get_fitness(test=True), self.get_age()]
         return ret
 
-    def get_data_column_count(self):
-        """
-        Returns the number of data columns needed to store this robot
-        :param num_commands: number of train_commands being sent to the robot
-        :return: number of data columns needed to store this robot
-        """
-        return 3 + 0 # fitness, fitness w/ test, age, + fitness of each environment
-
     def dominates_final_selection(self, other):
         return self.get_fitness() > other.get_fitness()
 
@@ -91,12 +81,11 @@ class SoftbotRobot(MOORobotInterface):
         pass
 
     def write_self_description(self, dir):
-        with open("%s/%d.txt"%(dir, self.id), "w") as f:
-            f.write("%s\n"%str(self))
-
+        with open("%s/%d.txt" % (dir, self.id), "w") as f:
+            f.write("%s\n" % str(self))
 
     def write_letter(self):
-        return Letter((0,0), None)
+        return Letter((0, 0), None)
 
     def open_letter(self, letter):
         self.fitness = random.random()

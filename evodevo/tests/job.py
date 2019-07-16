@@ -9,7 +9,6 @@ from parallelpy import parallel_evaluate
 import numpy as np
 
 sys.path.insert(0, "../..")
-from evodevo.tests.seq_num import get_seq_num
 
 from evodevo.tests.softbot_robot_base import SoftbotRobot
 
@@ -25,7 +24,7 @@ np.set_printoptions(suppress=True, formatter={'float_kind': lambda x: '%4.2f' % 
 
 
 POP_SIZE = 100
-MAX_GENS = 150
+MAX_GENS = 90
 
 
 SEED = int(sys.argv[1])
@@ -41,7 +40,7 @@ parallel_evaluate.setup(parallel_evaluate.PARALLEL_MODE_MPI_INTER)  # need to do
 def robot_factory():
     internal_robot = None
     # print(internal_robot.phenotype.get_phenotype())
-    return SoftbotRobot(internal_robot, get_seq_num, "run_%d" % SEED)
+    return SoftbotRobot(internal_robot, "run_%d" % SEED)
 
 
 def create_new_job():
