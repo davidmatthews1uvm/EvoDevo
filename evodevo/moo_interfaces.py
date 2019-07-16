@@ -45,7 +45,7 @@ class MOORobotInterface(Work):
     @abstractmethod
     def get_data(self): raise NotImplementedError
     
-    def write_self_description(self):
+    def write_self_description(self, dir):
         """
         When saving the best robots, we sometimes might want them to export a version of themselves which can be easily opened for later viewing.\
         Although we can alwayse recreate things from the pickles, this will be faster sometimes.

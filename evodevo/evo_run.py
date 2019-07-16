@@ -159,7 +159,7 @@ class EvolutionaryRun(object):
 
     def save_data(self, robot):
         if repr(robot) not in self.saved_robots:
-            robot.write_self_description()
+            robot.write_self_description("%s/%s"%(self.runDir, self.robotDir))
             self.saved_robots[repr(robot)] = 1
             # save the robot
             with open("%s/%s/%s.p" % (self.runDir, self.robotDir, str(robot.id)), "wb") as f:
