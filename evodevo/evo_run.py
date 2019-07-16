@@ -24,11 +24,13 @@ from evodevo.afpomoo import AFPOMoo
 from evodevo.moo_interfaces import RobotInterface
 from evodevo.utils import print_utils
 from evodevo.utils.print_utils import print_all
+import sqlite3
 
 
 class EvolutionaryRun(object):
     def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=".", override_git_hash_change=False, max_time=None):
-        assert isinstance(robot_factory(), RobotInterface)
+        example_bot = robot_factory()
+        assert isinstance(example_bot, RobotInterface)
 
         self.source_code_path = source_code_path  # used for logging git info.
 
@@ -47,6 +49,7 @@ class EvolutionaryRun(object):
                 if self.load_checkpoint(override_git_hash_change):
                     return
             self.create_directory(delete=True)
+
         self.saved_robots = {}
         self.num_gens = gens
         self.data_column_cnt = None
@@ -57,7 +60,30 @@ class EvolutionaryRun(object):
         self.messages_file = None
         self.experiment_name = experiment_name
 
+        # set up the Database
+        self.con = sqlite3.connect("%s/database.db"% self.runDir)
+        self.cur = self.con.cursor()
+        self.setup_db(example_bot)
+
         self.afpo_algorithm = AFPOMoo(robot_factory, pop_size=pop_size)  # , messages_file=self.messages_file)
+
+    def setup_db(self, example_bot):
+        # create the database if needed.
+        self.cur.execute("CREATE TABLE IF NOT EXISTS Robots %s"% example_bot.get_sql_columns())
+        self.cur.execute("CREATE TABLE IF NOT EXISTS Robots (id INT, info TEXT)")
+
+        self.cur.execute("CREATE TABLE IF NOT EXISTS RobotsDesc (id INT, info TEXT)")
+        self.cur.execute("CREATE INDEX IF NOT EXISTS descriptionRobotIndex ON RobotsDesc (id)")
+
+        self.cur.execute("CREATE TABLE IF NOT EXISTS RobotsRaw (id INT, info BLOB)")
+        self.cur.execute("CREATE INDEX IF NOT EXISTS pickledRobotIndex ON RobotsRaw (id)")
+
+        self.cur.execute("CREATE TABLE IF NOT EXISTS Generations (generation INT, robot INT)")
+        self.cur.execute("CREATE INDEX IF NOT EXISTS genIndex ON Generations (generation)")
+
+        self.cur.execute("CREATE TABLE IF NOT EXISTS Checkpoints (generation INT, checkpoint BLOB)")
+        self.cur.execute("CREATE INDEX IF NOT EXISTS checkpointIndex ON Checkpoints (generation)")
+
 
     def create_directory(self, delete=False):
 
@@ -147,8 +173,8 @@ class EvolutionaryRun(object):
         all_bots = self.afpo_algorithm.get_all_bots()
         for s in all_bots:
             self.save_data(s, dir=self.all_robot_dir)
-
         self.create_checkpoint()
+        self.con.commit()
         t1 = time.time()
         print_all("Generation took: %f" % (t1 - t0))
 
@@ -166,31 +192,52 @@ class EvolutionaryRun(object):
             self.stitch()
 
     def save_data(self, robot, dir=""):
-        if repr(robot) not in self.saved_robots:
-            robot.write_self_description("%s/%s" % (self.runDir, dir))
-            self.saved_robots[repr(robot)] = 1
+        if robot.get_id() not in self.saved_robots:
+            self.saved_robots[robot.get_id()] = 1
+
+            # save in main file system
+            robot_description = robot.get_self_description()
+            with open("%s/%s/%d.txt" % (self.runDir, dir, robot.get_id()), "w") as f:
+                f.write(robot_description)
+
             # save the robot
             with open("%s/%s/%s.p" % (self.runDir, dir, str(robot.id)), "wb") as f:
                 pickle.dump(robot, f)
+
             # save the info for the generation
             with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, self.current_gen), "w") as f:
                 to_write = [str(self.seed), str(self.current_gen), str(robot.id)]
                 if self.data_column_cnt is None:
-                    tmp = robot.get_data()
+                    tmp = robot.get_sql_data()
                     self.data_column_cnt = len(tmp)
                     to_write += [str(d) for d in tmp]
                 else:
-                    to_write += [str(d) for d in robot.get_data()]
+                    to_write += [str(d) for d in robot.get_sql_data()]
                 f.write(', '.join(to_write))
+
+            # save in database
+            self.cur.execute("INSERT INTO Robots VALUES " + str(robot.get_sql_data()))
+            self.cur.execute("INSERT INTO RobotsRaw VALUES (?, ?)", (robot.get_id(), pickle.dumps(robot)))
+            self.cur.execute("INSERT INTO RobotsDesc VALUES (?, ?)", (robot.get_id(), robot_description))
+            self.cur.execute("INSERT INTO Generations VALUES (?, ?)", (self.current_gen, robot.get_id()))
 
     def create_checkpoint(self):
         self.randRandState = random.getstate()
         self.numpyRandState = np.random.get_state()
         tmp = self.messages_file
         self.messages_file = None
+        tmpCur = self.cur
+        self.cur = None
+        tmpCon = self.con
+        self.con = None
         with open("%s/%s/%sCheckpoint.p" % (self.runDir, self.datDir, self.current_gen), "wb") as f:
             pickle.dump(self, f)
 
+
+        tmpCur.execute("INSERT INTO Checkpoints VALUES (?, ?)", (self.current_gen, pickle.dumps(self)))
+
+        self.con = tmpCon
+        self.cur = tmpCur
         self.messages_file = tmp
 
     def load_checkpoint(self, override_git_hash_change=False):
@@ -261,6 +308,8 @@ class EvolutionaryRun(object):
 
         random.setstate(self.randRandState)
         np.random.set_state(self.numpyRandState)
+        self.con = sqlite3.connect("%s/database.db" % self.runDir)
+        self.cur = self.con.cursor()
 
     def stitch(self):
         """
