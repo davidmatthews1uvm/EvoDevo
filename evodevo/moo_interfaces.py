@@ -88,7 +88,7 @@ class MOORobotInterface(RobotInterface):
     def get_minimize_vals(self): raise NotImplementedError
 
     @abstractmethod
-    def get_seq_num(self): raise NotImplementedError
+    def get_seq_num(self): return self.get_id()
 
     def dominates(self, other):
         """

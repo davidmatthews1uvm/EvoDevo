@@ -12,14 +12,9 @@ class SoftbotRobot(MOORobotInterface):
         self.id = -1
         self.parent_id = -1
         self.robot = robot
-        if "max_eval_time" in kwargs:
-            self.max_eval_time = kwargs["max_eval_time"]
-        else:
-            self.max_eval_time = 60 * 60 * 24  # 1 day: if we don't have an upper bound and the simulation enters a while true loop... this code also crashes.
 
         self.fitness = -1000
-        self.raw_fit = np.zeros(shape=(2, 2))
-
+        
         self.needs_eval = True
         self.age = 0
 
@@ -60,14 +55,12 @@ class SoftbotRobot(MOORobotInterface):
     def get_maximize_vals(self):
         return [self.fitness]
 
-    def get_seq_num(self):
-        return self.id
-
     def get_fitness(self, test=False):
         return self.fitness
 
     def get_sql_columns(self):
         return "(id INT, parentId INT, age INT, fitnessTrain FLOAT, fitnessTest FLOAT)"
+
     def get_sql_data(self):
         return (self.get_id(), self.get_parent_id(), self.get_age(), self.get_fitness(), self.get_fitness(test=True))
 
@@ -92,18 +85,6 @@ class SoftbotRobot(MOORobotInterface):
         self.needs_eval = False
         return None
 
-    def get_num_evaluations(self, test=False):
-        return 1
 
     def get_age(self):
         return self.age
-
-    def _flatten(self, l):
-        ret = []
-        for items in l:
-            ret += items
-        return ret
-
-
-class SimulationError(Exception):
-    pass
