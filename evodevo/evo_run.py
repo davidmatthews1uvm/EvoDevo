@@ -44,18 +44,18 @@ class EvolutionaryRun(object):
                 print_all("Attempting to load from a checkpoint")
                 if self.load_checkpoint(override_git_hash_change):
                     return
-            self.create_directory(delete=True)
-            self.saved_robots = {}
-            self.num_gens = gens
-            self.data_column_cnt = None
-            self.current_gen = 0
-            self.seed = seed
-            self.randRandState = None
-            self.numpyRandState = None
-            self.messages_file = None
-            self.experiment_name = experiment_name
+        self.create_directory(delete=True)
+        self.saved_robots = {}
+        self.num_gens = gens
+        self.data_column_cnt = None
+        self.current_gen = 0
+        self.seed = seed
+        self.randRandState = None
+        self.numpyRandState = None
+        self.messages_file = None
+        self.experiment_name = experiment_name
 
-            self.afpo_algorithm = AFPOMoo(robot_factory, pop_size=pop_size)  # , messages_file=self.messages_file)
+        self.afpo_algorithm = AFPOMoo(robot_factory, pop_size=pop_size)  # , messages_file=self.messages_file)
 
     def create_directory(self, delete=False):
 
@@ -80,6 +80,7 @@ class EvolutionaryRun(object):
                       " For Example, EvolutionaryRun(source_code_path='path/to/your/code')")
         else:
             print_all("Evo Run starting with git commit %s" % git_commit_hash)
+        return True
 
     def init(self):
         """
@@ -194,8 +195,8 @@ class EvolutionaryRun(object):
                 call(("touch %s/RUNNING" % self.runDir).split())
             else:
                 print("Evo run is already done. Please touch MORE to continue.")
-                self.cleanup_all()
-                exit(1)
+                self.cleanup_mpi() # we have not opened any files; thus nothing to cleanup except MPI
+                exit(0)
 
         if os.path.isdir("%s/%s" % (self.runDir, self.datDir)):
             gen = 1
