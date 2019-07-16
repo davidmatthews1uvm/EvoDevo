@@ -168,7 +168,7 @@ class EvolutionaryRun(object):
             # print_all("age: %f fit: %f" % (best[1], best[0]), self.messages_file)
             print_all(best[1])
 
-        self.save_data(best[1], dir=self.best_robot_dir)
+        self.save_data(best[1], dir=self.best_robot_dir, best=True)
 
         all_bots = self.afpo_algorithm.get_all_bots()
         for s in all_bots:
@@ -191,7 +191,7 @@ class EvolutionaryRun(object):
         if self.is_time_remaining():
             self.stitch()
 
-    def save_data(self, robot, dir=""):
+    def save_data(self, robot, dir="", best=False):
         if robot.get_id() not in self.saved_robots:
             self.saved_robots[robot.get_id()] = 1
 
@@ -204,7 +204,13 @@ class EvolutionaryRun(object):
             with open("%s/%s/%s.p" % (self.runDir, dir, str(robot.id)), "wb") as f:
                 pickle.dump(robot, f)
 
-            # save the info for the generation
+            # save in database
+            self.cur.execute("INSERT INTO Robots VALUES " + str(robot.get_sql_data()))
+            self.cur.execute("INSERT INTO RobotsRaw VALUES (?, ?)", (robot.get_id(), pickle.dumps(robot)))
+            self.cur.execute("INSERT INTO RobotsDesc VALUES (?, ?)", (robot.get_id(), robot_description))
+
+        # save best robot in .txt
+        if best:
             with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, self.current_gen), "w") as f:
                 to_write = [str(self.seed), str(self.current_gen), str(robot.id)]
                 if self.data_column_cnt is None:
@@ -215,10 +221,6 @@ class EvolutionaryRun(object):
                     to_write += [str(d) for d in robot.get_sql_data()]
                 f.write(', '.join(to_write))
 
-            # save in database
-            self.cur.execute("INSERT INTO Robots VALUES " + str(robot.get_sql_data()))
-            self.cur.execute("INSERT INTO RobotsRaw VALUES (?, ?)", (robot.get_id(), pickle.dumps(robot)))
-            self.cur.execute("INSERT INTO RobotsDesc VALUES (?, ?)", (robot.get_id(), robot_description))
             self.cur.execute("INSERT INTO Generations VALUES (?, ?)", (self.current_gen, robot.get_id()))
 
     def create_checkpoint(self):

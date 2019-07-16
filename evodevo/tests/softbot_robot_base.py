@@ -14,7 +14,7 @@ class SoftbotRobot(MOORobotInterface):
         self.robot = robot
 
         self.fitness = -1000
-        
+
         self.needs_eval = True
         self.age = 0
 

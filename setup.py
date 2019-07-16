@@ -23,7 +23,7 @@ from setuptools import setup
 
 setup(name='Evolutionary Development',
       author='David Matthews',
-      version='0.1.2.1',
+      version='0.1.2.2',
       packages=['evodevo'],
       description='Evolutionary Algorithms',
       install_requires=['numpy', 'scipy']
