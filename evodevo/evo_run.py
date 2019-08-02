@@ -15,6 +15,7 @@
 import os
 import pickle
 import random
+import sqlite3
 import time
 from subprocess import call, check_output
 
@@ -24,7 +25,6 @@ from evodevo.afpomoo import AFPOMoo
 from evodevo.moo_interfaces import RobotInterface
 from evodevo.utils import print_utils
 from evodevo.utils.print_utils import print_all
-import sqlite3
 
 
 class EvolutionaryRun(object):
@@ -36,9 +36,9 @@ class EvolutionaryRun(object):
 
         # make directory for current evo run.
         self.runDir = "run_%d" % seed
-        self.best_robot_dir = "BestRobots"
-        self.all_robot_dir = "AllRobots"
-        self.datDir = "Data"
+        # self.best_robot_dir = "BestRobots"
+        # self.all_robot_dir = "AllRobots"
+        # self.datDir = "Data"
         self.start_time = time.time()
         self.max_time = max_time
 
@@ -61,19 +61,27 @@ class EvolutionaryRun(object):
         self.experiment_name = experiment_name
 
         # set up the Database
-        self.con = sqlite3.connect("%s/database.db"% self.runDir)
+        self.con = sqlite3.connect("%s/database.db" % self.runDir)
         self.cur = self.con.cursor()
+        self.robot_description_table_enabled = False
         self.setup_db(example_bot)
 
         self.afpo_algorithm = AFPOMoo(robot_factory, pop_size=pop_size)  # , messages_file=self.messages_file)
 
     def setup_db(self, example_bot):
         # create the database if needed.
-        self.cur.execute("CREATE TABLE IF NOT EXISTS Robots %s"% example_bot.get_sql_columns())
-        self.cur.execute("CREATE TABLE IF NOT EXISTS Robots (id INT, info TEXT)")
 
-        self.cur.execute("CREATE TABLE IF NOT EXISTS RobotsDesc (id INT, info TEXT)")
-        self.cur.execute("CREATE INDEX IF NOT EXISTS descriptionRobotIndex ON RobotsDesc (id)")
+        robot_summary_columns = example_bot.get_summary_sql_columns()
+        assert "id INT" in robot_summary_columns, "Robots table must have an id field!"
+        self.cur.execute("CREATE TABLE IF NOT EXISTS Robots %s" % robot_summary_columns)
+        self.cur.execute("CREATE INDEX IF NOT EXISTS summaryRobotIndex ON Robots (id)")
+
+        robot_desc_columns = example_bot.get_description_sql_columns()
+        if robot_desc_columns is not None:
+            self.robot_description_table_enabled = True
+            assert "id INT" in robot_desc_columns, "RobotsDesc table must have an id field!"
+            self.cur.execute("CREATE TABLE IF NOT EXISTS RobotsDesc %s" % robot_desc_columns)
+            self.cur.execute("CREATE INDEX IF NOT EXISTS descriptionRobotIndex ON RobotsDesc (id)")
 
         self.cur.execute("CREATE TABLE IF NOT EXISTS RobotsRaw (id INT, info BLOB)")
         self.cur.execute("CREATE INDEX IF NOT EXISTS pickledRobotIndex ON RobotsRaw (id)")
@@ -84,7 +92,6 @@ class EvolutionaryRun(object):
         self.cur.execute("CREATE TABLE IF NOT EXISTS Checkpoints (generation INT, checkpoint BLOB)")
         self.cur.execute("CREATE INDEX IF NOT EXISTS checkpointIndex ON Checkpoints (generation)")
 
-
     def create_directory(self, delete=False):
 
         if os.path.isdir(self.runDir):
@@ -94,9 +101,10 @@ class EvolutionaryRun(object):
             else:
                 return False
         os.mkdir(self.runDir)
-        os.mkdir("%s/%s" % (self.runDir, self.best_robot_dir))
-        os.mkdir("%s/%s" % (self.runDir, self.all_robot_dir))
-        os.mkdir("%s/%s" % (self.runDir, self.datDir))
+        # removing support for individual file creation.
+        # os.mkdir("%s/%s" % (self.runDir, self.best_robot_dir))
+        # os.mkdir("%s/%s" % (self.runDir, self.all_robot_dir))
+        # os.mkdir("%s/%s" % (self.runDir, self.datDir))
 
         call(("touch %s/RUNNING" % self.runDir).split())
 
@@ -119,7 +127,7 @@ class EvolutionaryRun(object):
         """
 
         if self.messages_file is None:
-            self.messages_file = open("%s/messages_" % (self.runDir) + str(self.seed) + ".txt", "a")
+            self.messages_file = open("%s/messages_%s.txt" % (self.runDir, str(self.seed)), "a")
             print_utils.setup(log_file=self.messages_file)
 
     def cleanup_files(self):
@@ -168,11 +176,11 @@ class EvolutionaryRun(object):
             # print_all("age: %f fit: %f" % (best[1], best[0]), self.messages_file)
             print_all(best[1])
 
-        self.save_data(best[1], dir=self.best_robot_dir, best=True)
+        self.save_data(best[1], best=True)
 
         all_bots = self.afpo_algorithm.get_all_bots()
         for s in all_bots:
-            self.save_data(s, dir=self.all_robot_dir)
+            self.save_data(s)
         self.create_checkpoint()
         self.con.commit()
         t1 = time.time()
@@ -188,38 +196,43 @@ class EvolutionaryRun(object):
             self.do_generation(printing=printing)
 
         self.cleanup_all(done=self.is_time_remaining())
-        if self.is_time_remaining():
-            self.stitch()
+        # depricating old system for saving individual files.
+        # if self.is_time_remaining():
+        #     self.stitch()
 
-    def save_data(self, robot, dir="", best=False):
+    def save_data(self, robot, best=False):
         if robot.get_id() not in self.saved_robots:
+            # log that this robot has been saved. We don't need to re-save it.
             self.saved_robots[robot.get_id()] = 1
 
-            # save in main file system
-            robot_description = robot.get_self_description()
-            with open("%s/%s/%d.txt" % (self.runDir, dir, robot.get_id()), "w") as f:
-                f.write(robot_description)
-
-            # save the robot
-            with open("%s/%s/%s.p" % (self.runDir, dir, str(robot.id)), "wb") as f:
-                pickle.dump(robot, f)
+            # removing support for storing data in individual files.
+            # # save in main file system
+            # with open("%s/%s/%d.txt" % (self.runDir, dir, robot.get_id()), "w") as f:
+            #     f.write(robot_description)
+            #
+            # # save the robot
+            # with open("%s/%s/%s.p" % (self.runDir, dir, str(robot.id)), "wb") as f:
+            #     pickle.dump(robot, f)
 
             # save in database
-            self.cur.execute("INSERT INTO Robots VALUES " + str(robot.get_sql_data()))
+            self.cur.execute("INSERT INTO Robots VALUES " + str(robot.get_summary_sql_data()))
             self.cur.execute("INSERT INTO RobotsRaw VALUES (?, ?)", (robot.get_id(), pickle.dumps(robot)))
-            self.cur.execute("INSERT INTO RobotsDesc VALUES (?, ?)", (robot.get_id(), robot_description))
 
-        # save best robot in .txt
+            if self.robot_description_table_enabled:
+                self.cur.execute("INSERT INTO RobotsDesc VALUES " + str(robot.get_description_sql_data()))
+
+        # save best robot
         if best:
-            with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, self.current_gen), "w") as f:
-                to_write = [str(self.seed), str(self.current_gen), str(robot.id)]
-                if self.data_column_cnt is None:
-                    tmp = robot.get_sql_data()
-                    self.data_column_cnt = len(tmp)
-                    to_write += [str(d) for d in tmp]
-                else:
-                    to_write += [str(d) for d in robot.get_sql_data()]
-                f.write(', '.join(to_write))
+            # removing creation of individual files.
+            # with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, self.current_gen), "w") as f:
+            #     to_write = [str(self.seed), str(self.current_gen), str(robot.id)]
+            #     if self.data_column_cnt is None:
+            #         tmp = robot.get_sql_data()
+            #         self.data_column_cnt = len(tmp)
+            #         to_write += [str(d) for d in tmp]
+            #     else:
+            #         to_write += [str(d) for d in robot.get_sql_data()]
+            #     f.write(', '.join(to_write))
 
             self.cur.execute("INSERT INTO Generations VALUES (?, ?)", (self.current_gen, robot.get_id()))
 
@@ -228,21 +241,25 @@ class EvolutionaryRun(object):
         self.numpyRandState = np.random.get_state()
         tmp = self.messages_file
         self.messages_file = None
-        tmpCur = self.cur
+        tmp_cur = self.cur
         self.cur = None
-        tmpCon = self.con
+        tmp_con = self.con
         self.con = None
-        with open("%s/%s/%sCheckpoint.p" % (self.runDir, self.datDir, self.current_gen), "wb") as f:
-            pickle.dump(self, f)
 
+        # removing support for creation of individual files.
+        # with open("%s/%s/%sCheckpoint.p" % (self.runDir, self.datDir, self.current_gen), "wb") as f:
+        #     pickle.dump(self, f)
 
-        tmpCur.execute("INSERT INTO Checkpoints VALUES (?, ?)", (self.current_gen, pickle.dumps(self)))
-
-        self.con = tmpCon
-        self.cur = tmpCur
+        tmp_cur.execute("INSERT INTO Checkpoints VALUES (?, ?)", (self.current_gen, pickle.dumps(self)))
+        self.con = tmp_con
+        self.cur = tmp_cur
         self.messages_file = tmp
 
     def load_checkpoint(self, override_git_hash_change=False):
+        """
+        :param override_git_hash_change: If the git commit hash is different, do we want to re-start the evo run? or do we want to just continue?
+        :return: True if successfully loaded the checkpoint. False if an error occured.
+        """
         gens_to_add = 0
         if os.path.exists("%s/DONE" % self.runDir):
             if os.path.exists("%s/MORE" % self.runDir):
@@ -254,46 +271,93 @@ class EvolutionaryRun(object):
                 print("Evo run is already done. Please touch MORE to continue.")
                 exit(0)
 
-        if os.path.isdir("%s/%s" % (self.runDir, self.datDir)):
-            gen = 1
-            last_tmp = -1
-            tmp = -1
-
-            while tmp is not None:
-                try:
-                    tmp = pickle.load(open("%s/%s/%sCheckpoint.p" % (self.runDir, self.datDir, gen), "rb"))
-                    last_tmp = tmp
-                    gen += 1
-                except:
-                    tmp = None
-            if last_tmp == -1:
-                print_all("Failed to load from checkpoint: No checkpoints found.\nStarting from scratch.")
+        if os.path.isdir("%s" % self.runDir):
+            # is there a database file?
+            if not os.path.isfile("%s/database.db" % self.runDir):
+                print_all("Database not found.\nStarting from scratch.")
                 return False
-            self.setstate(last_tmp)
-            current_git_commit_hash = get_git_hash(source_code_path=self.source_code_path)
-            res = check_output(("ls %s" % self.runDir).split()).decode("utf-8").split()
-            for n, b in enumerate(["GITHASH_" in itm for itm in res]):
-                if b:
-                    last_git_commit_hash = res[n][8:]
-                    if last_git_commit_hash != current_git_commit_hash:
-                        if override_git_hash_change:
-                            print_all("The git commit changed. Restart overridden; continuing.")
-                            call(("touch %s/GITHASH_%s" % (self.runDir, current_git_commit_hash)).split())
-                            break
-                        print_all("Failed to load from checkpoint. The git commit changed.\nStarting from scratch.")
-                        call(("rm %s/GITHASH_*" % self.runDir).split())
-                        return False
-                    else:
-                        break
+            try:
+                # try to connect to the database
+                self.con = sqlite3.connect("%s/database.db" % self.runDir)
+                self.cur = self.con.cursor()
 
-            print_all("Successfully loaded checkpoint at gen %d" % self.current_gen)
-            if gens_to_add > 0:
-                print_all("Adding %d additional generations" % gens_to_add)
-                self.num_gens += gens_to_add
-            return True
+                # get the newest checkpoint and attempt to load it in.
+                self.cur.execute("SELECT (checkpoint) FROM Checkpoints ORDER BY Generation DESC limit 1")
+                res = self.cur.fetchone()
+                if res is None:
+                    print_all("No checkpoints were found.\nStarting from scratch.")
+                    return False
+                candidate_checkpoint = pickle.loads(res[0])
+                self.setstate(candidate_checkpoint)
+
+
+                current_git_commit_hash = get_git_hash(source_code_path=self.source_code_path)
+                res = check_output(("ls %s" % self.runDir).split()).decode("utf-8").split()
+                for n, b in enumerate(["GITHASH_" in itm for itm in res]):  # mask out for the Git hash.
+                    if b:
+                        last_git_commit_hash = res[n][8:]
+                        if last_git_commit_hash != current_git_commit_hash:
+                            if override_git_hash_change:
+                                print_all("The git commit changed. Restart overridden; continuing.")
+                                call(("touch %s/GITHASH_%s" % (self.runDir, current_git_commit_hash)).split())
+                                break
+                            print_all("Failed to load from checkpoint. The git commit changed.\nStarting from scratch.")
+                            call(("rm %s/GITHASH_*" % self.runDir).split())
+                            return False
+                        else:
+                            break
+                print_all("Successfully loaded checkpoint at gen %d" % self.current_gen)
+                if gens_to_add > 0:
+                    print_all("Adding %d additional generations" % gens_to_add)
+                    self.num_gens += gens_to_add
+                return True
+
+            except Exception as e:
+                print_all("Unable to load checkpoint from Database.")
+                print_all("Error was: %s" % e)
+                print_all("Starting from scratch.")
+                return False
+
+            # Removing individual file logging
+            # gen = 1
+            # last_tmp = -1
+            # tmp = -1
+            #
+            # while tmp is not None:
+            #     try:
+            #         tmp = pickle.load(open("%s/%s/%sCheckpoint.p" % (self.runDir, self.datDir, gen), "rb"))
+            #         last_tmp = tmp
+            #         gen += 1
+            #     except:
+            #         tmp = None
+            # if last_tmp == -1:
+            #     print_all("Failed to load from checkpoint: No checkpoints found.\nStarting from scratch.")
+            #     return False
+            # self.setstate(last_tmp)
+            # current_git_commit_hash = get_git_hash(source_code_path=self.source_code_path)
+            # res = check_output(("ls %s" % self.runDir).split()).decode("utf-8").split()
+            # for n, b in enumerate(["GITHASH_" in itm for itm in res]):
+            #     if b:
+            #         last_git_commit_hash = res[n][8:]
+            #         if last_git_commit_hash != current_git_commit_hash:
+            #             if override_git_hash_change:
+            #                 print_all("The git commit changed. Restart overridden; continuing.")
+            #                 call(("touch %s/GITHASH_%s" % (self.runDir, current_git_commit_hash)).split())
+            #                 break
+            #             print_all("Failed to load from checkpoint. The git commit changed.\nStarting from scratch.")
+            #             call(("rm %s/GITHASH_*" % self.runDir).split())
+            #             return False
+            #         else:
+            #             break
+            #
+            # print_all("Successfully loaded checkpoint at gen %d" % self.current_gen)
+            # if gens_to_add > 0:
+            #     print_all("Adding %d additional generations" % gens_to_add)
+            #     self.num_gens += gens_to_add
+            # return True
 
         else:
-            print_all("Failed to load from checkpoint. Data directory missing.\nStarting from scratch.")
+            print_all("Failed to load from checkpoint. Run directory missing.\nStarting from scratch.")
             return False
 
     def setstate(self, other):
@@ -307,27 +371,31 @@ class EvolutionaryRun(object):
         self.messages_file = None
         self.experiment_name = other.experiment_name
         self.afpo_algorithm = other.afpo_algorithm
+        self.robot_description_table_enabled = other.robot_description_table_enabled
 
         random.setstate(self.randRandState)
         np.random.set_state(self.numpyRandState)
-        self.con = sqlite3.connect("%s/database.db" % self.runDir)
-        self.cur = self.con.cursor()
+        # self.con = sqlite3.connect("%s/database.db" % self.runDir)
+        # self.cur = self.con.cursor()
 
-    def stitch(self):
-        """
-        stitch the generation logs together into one CSV file.
-        :return: None
-        """
-        try:
-            out_file = open("%s/Gens.txt" % self.runDir, "w")
-            out_file.write("Seed,Gen,UUID,fit,fit_test, age," + ','.join(["Data_%d" % n for n in range(self.data_column_cnt)]) + "\n")
-            for i in range(1, self.num_gens):
-                with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, i), "r") as f:
-                    out_file.write(f.read() + "\n")
-            out_file.close()
-        except Exception as e:
-            print("Failed to stitch the data together.")
-            print(str(e))
+    # Depricating old system for saving individual files
+    # def stitch(self):
+    #     """
+    #     Deprecated. Use the database for this.
+    #     stitch the generation logs together into one CSV file.
+    #     :return: None
+    #     """
+    #     return None
+    #     # try:
+    #     #     out_file = open("%s/Gens.txt" % self.runDir, "w")
+    #     #     out_file.write("Seed,Gen,UUID,fit,fit_test, age," + ','.join(["Data_%d" % n for n in range(self.data_column_cnt)]) + "\n")
+    #     #     for i in range(1, self.num_gens):
+    #     #         with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, i), "r") as f:
+    #     #             out_file.write(f.read() + "\n")
+    #     #     out_file.close()
+    #     # except Exception as e:
+    #     #     print("Failed to stitch the data together.")
+    #     #     print(str(e))
 
     def is_time_remaining(self):
         if self.max_time is None:

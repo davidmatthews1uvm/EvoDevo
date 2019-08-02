@@ -58,10 +58,10 @@ class SoftbotRobot(MOORobotInterface):
     def get_fitness(self, test=False):
         return self.fitness
 
-    def get_sql_columns(self):
+    def get_summary_sql_columns(self):
         return "(id INT, parentId INT, age INT, fitnessTrain FLOAT, fitnessTest FLOAT)"
 
-    def get_sql_data(self):
+    def get_summary_sql_data(self):
         return (self.get_id(), self.get_parent_id(), self.get_age(), self.get_fitness(), self.get_fitness(test=True))
 
     def dominates_final_selection(self, other):
@@ -73,9 +73,15 @@ class SoftbotRobot(MOORobotInterface):
 
     def compute_work(self, test=True, **kwargs):
         pass
+        # import time
+        #
+        # time.sleep(0.01)
 
-    def get_self_description(self):
-        return str(self)
+    def get_description_sql_columns(self):
+        return "(id INT, test TEXT)"
+
+    def get_description_sql_data(self):
+        return (self.get_id(), "THIS IS A TEST%d"%self.get_fitness())
 
     def write_letter(self):
         return Letter((0, 0), None)

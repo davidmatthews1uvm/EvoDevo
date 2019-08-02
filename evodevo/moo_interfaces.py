@@ -57,18 +57,26 @@ class RobotInterface(Work):
        """
         raise NotImplementedError
 
-    def get_sql_columns(self): raise NotImplementedError
+    def get_summary_sql_columns(self): raise NotImplementedError
 
     @abstractmethod
-    def get_sql_data(self): raise NotImplementedError
+    def get_summary_sql_data(self): raise NotImplementedError
 
-    def get_self_description(self):
+    @abstractmethod
+    def get_description_sql_columns(self):
+        """
+        If you want to disable the RobotDesc table, then return None here.
+        :return:
+        """
+        return None
+
+    def get_description_sql_data(self):
         """
         When saving the best robots, we sometimes might want them to export a version of themselves which can be easily opened for later viewing.\
-        Although we can alwayse recreate things from the pickles, this will be faster sometimes.
+        Although we can always recreate things from the pickles, this will be faster sometimes.
         :return: None
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def dominates(self, other): raise NotImplementedError
