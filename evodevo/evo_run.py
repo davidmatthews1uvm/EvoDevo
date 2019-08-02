@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import shutil
 import pickle
 import random
 import sqlite3
@@ -96,11 +97,14 @@ class EvolutionaryRun(object):
 
         if os.path.isdir(self.runDir):
             if delete:
-                call(("rm -rf %s" % self.runDir).split())
+                shutil.rmtree(self.runDir, ignore_errors=True)
+                # call(("rm -rf %s" % self.runDir).split())
                 print_all("Deleting directory %s/" % self.runDir)
             else:
                 return False
-        os.mkdir(self.runDir)
+
+        os.makedirs(self.runDir, exist_ok=True)
+
         # removing support for individual file creation.
         # os.mkdir("%s/%s" % (self.runDir, self.best_robot_dir))
         # os.mkdir("%s/%s" % (self.runDir, self.all_robot_dir))
@@ -215,11 +219,16 @@ class EvolutionaryRun(object):
             #     pickle.dump(robot, f)
 
             # save in database
-            self.cur.execute("INSERT INTO Robots VALUES " + str(robot.get_summary_sql_data()))
+
+            num_fields = len(robot.get_summary_sql_columns().split(","))
+            summaryMask = "(" + ", ".join(["?"]*num_fields) + ")"
+            self.cur.execute("INSERT INTO Robots VALUES %s"%summaryMask, robot.get_summary_sql_data())
             self.cur.execute("INSERT INTO RobotsRaw VALUES (?, ?)", (robot.get_id(), pickle.dumps(robot)))
 
             if self.robot_description_table_enabled:
-                self.cur.execute("INSERT INTO RobotsDesc VALUES " + str(robot.get_description_sql_data()))
+                num_fields = len(robot.get_description_sql_columns().split(","))
+                summaryMask = "(" + ", ".join(["?"] * num_fields) + ")"
+                self.cur.execute("INSERT INTO RobotsDesc VALUES %s"%summaryMask, robot.get_description_sql_data())
 
         # save best robot
         if best:
