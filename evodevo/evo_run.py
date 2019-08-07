@@ -29,14 +29,17 @@ from evodevo.utils.print_utils import print_all
 
 
 class EvolutionaryRun(object):
-    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=".", override_git_hash_change=False, max_time=None):
+    def __init__(self, robot_factory, gens, seed, pop_size=75, experiment_name="", source_code_path=".", override_git_hash_change=False, max_time=None, run_dir=None):
         example_bot = robot_factory()
         assert isinstance(example_bot, RobotInterface)
 
         self.source_code_path = source_code_path  # used for logging git info.
 
         # make directory for current evo run.
-        self.runDir = "run_%d" % seed
+        if run_dir is not None:
+            self.runDir = run_dir
+        else:
+            self.runDir = "run_%d" % seed
         # self.best_robot_dir = "BestRobots"
         # self.all_robot_dir = "AllRobots"
         # self.datDir = "Data"
