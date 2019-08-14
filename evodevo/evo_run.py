@@ -175,13 +175,14 @@ class EvolutionaryRun(object):
 
         if printing:
             print_all("%d individuals are dominating" % (dom_data[0],))
-            print_all(dom_data[1])
+            dom_inds = sorted(dom_data[1], key= lambda x: x.get_fitness(), reverse=False)
+            print_all('\n'.join([str(d) for d in dom_inds]))
 
         best = self.afpo_algorithm.get_best()
 
-        if printing:
-            # print_all("age: %f fit: %f" % (best[1], best[0]), self.messages_file)
-            print_all(best[1])
+        # if printing:
+        #     # print_all("age: %f fit: %f" % (best[1], best[0]), self.messages_file)
+        #     print_all(best[1])
 
         self.save_data(best[1], best=True)
 
