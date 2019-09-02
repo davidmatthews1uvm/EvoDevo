@@ -87,9 +87,6 @@ class SoftbotRobot(MOORobotInterface):
 
     def compute_work(self, test=True, **kwargs):
         pass
-        # import time
-        #
-        # time.sleep(0.01)
 
     def get_description_sql_columns(self):
         return "(id INT, test TEXT)"

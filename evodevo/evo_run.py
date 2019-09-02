@@ -204,23 +204,11 @@ class EvolutionaryRun(object):
             self.do_generation(printing=printing)
 
         self.cleanup_all(done=self.is_time_remaining())
-        # depricating old system for saving individual files.
-        # if self.is_time_remaining():
-        #     self.stitch()
 
     def save_data(self, robot, best=False):
         if robot.get_id() not in self.saved_robots:
             # log that this robot has been saved. We don't need to re-save it.
             self.saved_robots[robot.get_id()] = 1
-
-            # removing support for storing data in individual files.
-            # # save in main file system
-            # with open("%s/%s/%d.txt" % (self.runDir, dir, robot.get_id()), "w") as f:
-            #     f.write(robot_description)
-            #
-            # # save the robot
-            # with open("%s/%s/%s.p" % (self.runDir, dir, str(robot.id)), "wb") as f:
-            #     pickle.dump(robot, f)
 
             # save in database
 
@@ -236,17 +224,6 @@ class EvolutionaryRun(object):
 
         # save best robot
         if best:
-            # removing creation of individual files.
-            # with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, self.current_gen), "w") as f:
-            #     to_write = [str(self.seed), str(self.current_gen), str(robot.id)]
-            #     if self.data_column_cnt is None:
-            #         tmp = robot.get_sql_data()
-            #         self.data_column_cnt = len(tmp)
-            #         to_write += [str(d) for d in tmp]
-            #     else:
-            #         to_write += [str(d) for d in robot.get_sql_data()]
-            #     f.write(', '.join(to_write))
-
             self.cur.execute("INSERT INTO Generations VALUES (?, ?)", (self.current_gen, robot.get_id()))
 
     def create_checkpoint(self):
@@ -258,10 +235,6 @@ class EvolutionaryRun(object):
         self.cur = None
         tmp_con = self.con
         self.con = None
-
-        # removing support for creation of individual files.
-        # with open("%s/%s/%sCheckpoint.p" % (self.runDir, self.datDir, self.current_gen), "wb") as f:
-        #     pickle.dump(self, f)
 
         tmp_cur.execute("INSERT INTO Checkpoints VALUES (?, ?)", (self.current_gen, pickle.dumps(self)))
         self.con = tmp_con
@@ -331,44 +304,6 @@ class EvolutionaryRun(object):
                 print_all("Starting from scratch.")
                 return False
 
-            # Removing individual file logging
-            # gen = 1
-            # last_tmp = -1
-            # tmp = -1
-            #
-            # while tmp is not None:
-            #     try:
-            #         tmp = pickle.load(open("%s/%s/%sCheckpoint.p" % (self.runDir, self.datDir, gen), "rb"))
-            #         last_tmp = tmp
-            #         gen += 1
-            #     except:
-            #         tmp = None
-            # if last_tmp == -1:
-            #     print_all("Failed to load from checkpoint: No checkpoints found.\nStarting from scratch.")
-            #     return False
-            # self.setstate(last_tmp)
-            # current_git_commit_hash = get_git_hash(source_code_path=self.source_code_path)
-            # res = check_output(("ls %s" % self.runDir).split()).decode("utf-8").split()
-            # for n, b in enumerate(["GITHASH_" in itm for itm in res]):
-            #     if b:
-            #         last_git_commit_hash = res[n][8:]
-            #         if last_git_commit_hash != current_git_commit_hash:
-            #             if override_git_hash_change:
-            #                 print_all("The git commit changed. Restart overridden; continuing.")
-            #                 call(("touch %s/GITHASH_%s" % (self.runDir, current_git_commit_hash)).split())
-            #                 break
-            #             print_all("Failed to load from checkpoint. The git commit changed.\nStarting from scratch.")
-            #             call(("rm %s/GITHASH_*" % self.runDir).split())
-            #             return False
-            #         else:
-            #             break
-            #
-            # print_all("Successfully loaded checkpoint at gen %d" % self.current_gen)
-            # if gens_to_add > 0:
-            #     print_all("Adding %d additional generations" % gens_to_add)
-            #     self.num_gens += gens_to_add
-            # return True
-
         else:
             print_all("Failed to load from checkpoint. Run directory missing.\nStarting from scratch.")
             return False
@@ -388,27 +323,6 @@ class EvolutionaryRun(object):
 
         random.setstate(self.randRandState)
         np.random.set_state(self.numpyRandState)
-        # self.con = sqlite3.connect("%s/database.db" % self.runDir)
-        # self.cur = self.con.cursor()
-
-    # Depricating old system for saving individual files
-    # def stitch(self):
-    #     """
-    #     Deprecated. Use the database for this.
-    #     stitch the generation logs together into one CSV file.
-    #     :return: None
-    #     """
-    #     return None
-    #     # try:
-    #     #     out_file = open("%s/Gens.txt" % self.runDir, "w")
-    #     #     out_file.write("Seed,Gen,UUID,fit,fit_test, age," + ','.join(["Data_%d" % n for n in range(self.data_column_cnt)]) + "\n")
-    #     #     for i in range(1, self.num_gens):
-    #     #         with open("%s/%s/%sGen.txt" % (self.runDir, self.datDir, i), "r") as f:
-    #     #             out_file.write(f.read() + "\n")
-    #     #     out_file.close()
-    #     # except Exception as e:
-    #     #     print("Failed to stitch the data together.")
-    #     #     print(str(e))
 
     def is_time_remaining(self):
         if self.max_time is None:
