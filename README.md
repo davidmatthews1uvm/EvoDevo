@@ -21,3 +21,8 @@ See the License for the specific language governing permissions and limitations 
 * [ParallelPy](https://github.com/davidmatthews1uvm/ParallelPy). Please follow install instructs in the readme in the ParallelPy repository.
 * numpy
 * scipy
+
+### Install EvoDevo
+Installation of evodevo is not always required for use. If you want to install feel free to do either of the following:
+* > python setup.py install
+* > python setup.py develop
