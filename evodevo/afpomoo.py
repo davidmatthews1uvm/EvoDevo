@@ -60,13 +60,15 @@ class AFPOMoo(object):
         for s in self.students:
             s.iterate_generation()
 
-    def _evaluate_all(self):
+    def _evaluate_all(self, batch_eval=None):
         # get the robots to evaluate, store how many simulations each robot needs.
         students_to_evaluate = [s for s in self.students if s.needs_evaluation()]
 
-        batch_complete_work(students_to_evaluate)
-
-    def generation(self):
+        if batch_eval is None:
+            batch_complete_work(students_to_evaluate)
+        else:
+            batch_eval(students_to_evaluate)
+    def generation(self, batch_eval=None):
         # update the generation dependent behavioral_sem_error of the bots.
         self._iterate_generation()
 
@@ -84,7 +86,7 @@ class AFPOMoo(object):
             self.students.append(new_student)
 
         # evaluate all robots
-        self._evaluate_all()
+        self._evaluate_all(batch_eval=batch_eval)
 
         numb_students = self.pop_size * 2
 
