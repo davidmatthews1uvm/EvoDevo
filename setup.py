@@ -24,7 +24,7 @@ from setuptools import setup
 setup(name='Evolutionary Development',
       author='David Matthews',
       version='0.1.3.4',
-      packages=['evodevo'],
+      packages=['evodevo', "evodevo.utils"],
       description='Evolutionary Algorithms',
       install_requires=['numpy', 'scipy']
     )

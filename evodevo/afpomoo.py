@@ -16,8 +16,13 @@
 import copy
 import random
 
-from parallelpy.parallel_evaluate import batch_complete_work
-from parallelpy.parallel_evaluate import cleanup as _cleanup
+try:
+    from parallelpy.parallel_evaluate import batch_complete_work
+    from parallelpy.parallel_evaluate import cleanup as _cleanup
+    ParallelPyMissing = False
+except ImportError:
+    from multiprocessing import Pool
+    ParallelPyMissing = True
 
 from evodevo.moo_interfaces import RobotInterface
 from evodevo.utils.print_utils import print_all
@@ -35,6 +40,8 @@ class AFPOMoo(object):
 
         self.students = [None] * self.pop_size
         self.robot_id = 0
+        if ParallelPyMissing:
+            self.pool = Pool()
         self.initialize()
 
     def __str__(self):
@@ -50,7 +57,10 @@ class AFPOMoo(object):
         return self.robot_id
 
     def cleanup(self):
-        _cleanup()
+        if not ParallelPyMissing:
+            _cleanup()
+        else:
+            self.pool.close()
 
     def get_data_for_pickling(self):
         return self.students
